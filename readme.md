@@ -11,7 +11,8 @@ Instructions:
     ./client <addres> <port>
 
 -Request template
-    RD-REQ*<path>*<nrbytes>*<offset>*<client_id>
-    WR-REQ*<path>*<nrbytes>*<offset>*<client_id>
-    FI-REQ*<path>
-    D<Option>-REQ*<path>*<dirname>*<client_id>
+
+read:       RD-REQ*<path>*<nrbytes>*<offset>*<client_id>
+write:      WR-REQ*<path>*<nrbytes>*<offset>*<client_id>
+file:       FI-REQ*<path>
+directory:  D<Option>-REQ*<path>*<dirname>*<client_id>
