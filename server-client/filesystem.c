@@ -2,8 +2,56 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/param.h>
+#include <sys/stat.h>
 
-#define MAX_PAYLOAD_SIZE 512
+
+int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
+
+    if (msg[0] == 'R') {
+        printf("READ\n");
+        if ( read_parser(msg, rd_req) < 0 ) {
+            rd_req->payload = "Error during parsing";
+        }
+
+        if ( file_read(rd_req) < 0) {
+            rd_req->payload = "Error opening file";
+        }
+        printf("Parse complete\n");
+        return 0;
+
+    }
+    else if (msg[0] == 'W') {
+        printf("WRITE\n");
+        write_parser(msg, wr_req);
+        printf("Parse complete\n");
+        return 0;
+    }
+    else if (msg[0] == 'F') {
+        printf("FILE\n");
+        file_parser(msg, fi_req);
+        printf("Parse complete\n");
+        return 0;
+    }   
+    else if (msg[0] == 'D') {
+        printf("DIRECTORY\n");
+        dir_parser(msg, dir_req);
+        printf("Parse complete\n");
+        return 0;
+    }
+
+    else 
+        return -1;
+
+    return 0;
+}
+
+/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
+/* Parse Functions */
+
 
 int write_parser(char * msg, WRreq * req) {
     int i = 0;
@@ -118,31 +166,58 @@ int dir_parser(char * msg, DIRreq * req) {
     return 0;
 }
 
-int msg_parser(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
-    if (msg[0] == 'R') {
-        printf("READ\n");
-        read_parser(msg, rd_req);
-        return 0;
+/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
+/* File System Functions */
 
-    }
-    else if (msg[0] == 'W') {
-        printf("WRITE\n");
-        write_parser(msg, wr_req);
-        return 0;
-    }
-    else if (msg[0] == 'F') {
-        printf("FILE\n");
-        file_parser(msg, fi_req);
-        return 0;
-    }   
-    else if (msg[0] == 'D') {
-        printf("DIRECTORY\n");
-        dir_parser(msg, dir_req);
-        return 0;
+
+int file_read(RDreq * rd_req) {
+	int fd, i = 0;
+	char path[256] = "../SFS-root-dir";
+	char * p;
+	struct stat buffer;
+	char * payload = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+
+    int count_bytes = 0;
+    int total_bytes = rd_req->nrbytes;
+    int current;
+
+	strcat(path, rd_req->path);
+
+	fd = open(path, O_RDONLY);
+
+	if(fd == -1){
+		return 1;
+	}
+
+	if(fstat(fd, &buffer) == -1) {
+		return 1;
+	}
+
+	p = mmap(0, buffer.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	if(p == MAP_FAILED){
+		return 1;
+	}
+
+    current = rd_req->offset; 
+    while(count_bytes < total_bytes) {
+        payload[i] = p[current];
+        count_bytes++;
+        current++;
+        i++;
     }
 
-    else 
-        return -1;
+	if(munmap(p, buffer.st_size) == -1){
+		return 1;
+	}
 
+    payload = (char*)realloc(payload, sizeof(char)*total_bytes);
+
+	rd_req->payload = payload;
+
+	return 0;
+}
+
+int directory_create(DIRreq * dir_req) {
+    
     return 0;
 }

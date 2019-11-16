@@ -1,7 +1,8 @@
 /* filesystem.h */
 
+#define MAX_PAYLOAD_SIZE 512
 
-/* Struct with read request parameters*/
+/* Struct read parameters*/
 
 typedef struct rd_req {
     char * path;
@@ -28,6 +29,10 @@ typedef struct wr_req {
 typedef struct fi_req {
     char * path;
     int len;
+    int owner;
+    char permissions;
+    long int file_length;
+
 }FIreq;
 
 
@@ -42,7 +47,15 @@ typedef struct dir_req {
 }DIRreq;
 
 
-/* Functions */
+
+/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
+/* Parsing functions */
+
+int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req);
+/* Generic msg string parser. Sends string to it's respective parser
+ * 
+ */
+
 
 int write_parser(char * msg, WRreq * req);
 /* Write request string parser. Pass parameters through WRreq */ 
@@ -56,6 +69,12 @@ int file_parser(char * msg, FIreq * req);
 int dir_parser(char * msg, DIRreq * req);
 /* Directory request string parser. Pass parameters through DIRreq */ 
 
-int msg_parser(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req);
-/* Generic msg string parser. Sends string to it's respective parser */
 
+/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
+/* File System Functions */
+
+int file_info(FIreq * fi_req);
+
+int file_read(RDreq * rd_req);
+
+int directory_create(DIRreq * dir_req);
