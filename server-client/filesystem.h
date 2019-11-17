@@ -2,7 +2,15 @@
 
 #define MAX_PAYLOAD_SIZE 512
 
-/* Struct read parameters*/
+#define OFFSET 20
+/*
+ * Data regarding file owner and permissions to other users
+ * are kept in the first 20 bytes of the file. So, the read
+ * offset 0 actually begins on the 20th byte. 
+ * 
+ */
+
+/* Struct read parameters */
 
 typedef struct rd_req {
     char * path;
@@ -22,6 +30,8 @@ typedef struct wr_req {
     int nrbytes;
     int offset;
     int client_id;
+    char owner_perm;
+    char other_perm;
 }WRreq;
 
 /* Struct with file(info) request parameters*/
@@ -78,3 +88,5 @@ int file_info(FIreq * fi_req);
 int file_read(RDreq * rd_req);
 
 int directory_create(DIRreq * dir_req);
+
+int file_write(WRreq * wr_req);
