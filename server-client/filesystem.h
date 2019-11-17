@@ -2,7 +2,7 @@
 
 #define MAX_PAYLOAD_SIZE 512
 
-#define OFFSET 20
+#define OFFSET 10
 /*
  * Data regarding file owner and permissions to other users
  * are kept in the first 20 bytes of the file. So, the read

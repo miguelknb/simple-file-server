@@ -8,6 +8,7 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 
+#define _GNU_SOURCE
 
 
 int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
@@ -26,7 +27,7 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
 
     }
     else if (msg[0] == 'W') {
-        printf("READ\n");
+        printf("WRITE\n");
         if ( write_parser(msg, wr_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
@@ -181,7 +182,9 @@ int dir_parser(char * msg, DIRreq * req) {
 /* File System Functions */
 
 static char * metadata_insert(WRreq * wr_req) {
-    int count;
+    int count = 0;
+    int m_len;
+
     char * owner_id = (char*)malloc(12*sizeof(char));
     /* <id>\n */
     char * owner_perm = (char*)malloc(2*sizeof(char));
@@ -209,7 +212,14 @@ static char * metadata_insert(WRreq * wr_req) {
     others_perm[1] = '\n';
     strcat(metadata, others_perm);
     
+    m_len = strlen(metadata);
 
+    while (m_len < 10) {
+        strcat(metadata, "*");
+        m_len++;
+    }
+
+    metadata[20] = '\n';
 
     return metadata;
 }
@@ -276,33 +286,49 @@ int file_write(WRreq * wr_req) {
 
     int count_bytes = 0;
     int total_bytes = wr_req->nrbytes;
-    int current;
+    int current = OFFSET + wr_req->offset; 
 
     char * payload = wr_req->payload;
 
 	strcat(path, wr_req->path);
 
-    
-
     if (access(path, F_OK) != -1 ) {
         // file exists
+        printf("file exists\n");
+        
+        fd = open(path, O_RDWR);
 
-        // fd = open(path, O_RDONLY);
+        if(fd == -1){
+            perror("fd");
+            return 1;
+        }
 
-        // if(fd == -1){
-        //     return 1;
-        // }
+        if(fstat(fd, &buffer) == -1) {
+            perror("fstat");
+            return 1;
+        }
 
-        // if(fstat(fd, &buffer) == -1) {
-        //     return 1;
-        // }
+        p = mmap(NULL, buffer.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-        // p = mmap(0, buffer.st_size, PROT_READ, MAP_SHARED, fd, 0);
+        if(p == MAP_FAILED){
+            perror("mmap");
+            return 1;
+        }
 
-        // if(p == MAP_FAILED){
-        //     return 1;
-        // }
+        
 
+        if( (wr_req->offset + wr_req->nrbytes) > buffer.st_size - 1) {
+            /* allocating more memory to file */
+            ftruncate(fd, buffer.st_size + wr_req->nrbytes);
+        }
+
+
+        while(count_bytes < total_bytes) {
+            p[current] = payload[i];
+            count_bytes++;
+            current++;
+            i++;
+        }
 
     }
     
@@ -310,7 +336,7 @@ int file_write(WRreq * wr_req) {
         //file doesn't exists, inserting metadata
     }
 
-    printf("METADATA:\n%s\n", metadata);
+    printf("\nMETADATA = %s\n",metadata );
 
     return 0;
 }
