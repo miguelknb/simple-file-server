@@ -316,12 +316,10 @@ int file_write(WRreq * wr_req) {
         }
 
         
-
         if( (wr_req->offset + wr_req->nrbytes) > buffer.st_size - 1) {
             /* allocating more memory to file */
-            ftruncate(fd, buffer.st_size + wr_req->nrbytes);
+            ftruncate(fd, wr_req->nrbytes + wr_req->offset);
         }
-
 
         while(count_bytes < total_bytes) {
             p[current] = payload[i];
