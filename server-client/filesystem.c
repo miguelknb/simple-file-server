@@ -182,17 +182,16 @@ int dir_parser(char * msg, DIRreq * req) {
 /* File System Functions */
 
 static char * metadata_insert(WRreq * wr_req) {
-    int count = 0;
     int m_len;
 
-    char * owner_id = (char*)malloc(12*sizeof(char));
-    /* <id>\n */
-    char * owner_perm = (char*)malloc(2*sizeof(char));
-    /* <w/d>\n */ 
-    char * others_perm = (char*)malloc(2*sizeof(char));
+    // char * owner_id = (char*)malloc(12*sizeof(char));
+    // /* <id>\n */
+    // char * owner_perm = (char*)malloc(2*sizeof(char));
+    // /* <w/d>\n */ 
+    // char * others_perm = (char*)malloc(2*sizeof(char));
     /* <w/d>\n */
 
-    char * metadata = (char*)malloc(20*sizeof(char));
+    char * metadata = (char*)malloc(10*sizeof(char));
     /* template:
      *
      * <owner_id>
@@ -202,24 +201,26 @@ static char * metadata_insert(WRreq * wr_req) {
      * 
      */
 
-    sprintf(owner_id, "%d" ,wr_req->client_id);
-    strcat(owner_id, "\n");
-    strcat(metadata, owner_id);
-    owner_perm[0] = wr_req->owner_perm;
-    owner_perm[1] = '\n';
-    strcat(metadata, owner_perm);
-    others_perm[0] = wr_req->other_perm;
-    others_perm[1] = '\n';
-    strcat(metadata, others_perm);
+    sprintf(metadata, "%d\n%c\n%c\n", wr_req->client_id, wr_req->owner_perm, wr_req->other_perm);
+
+    // sprintf(owner_id, "%d" ,wr_req->client_id);
+    // strcat(owner_id, "\n");
+    // strcat(metadata, owner_id);
+    // owner_perm[0] = wr_req->owner_perm;
+    // owner_perm[1] = '\n';
+    // strcat(metadata, owner_perm);
+    // others_perm[0] = wr_req->other_perm;
+    // others_perm[1] = '\n';
+    // strcat(metadata, others_perm);
     
     m_len = strlen(metadata);
 
-    while (m_len < 10) {
+    while (m_len < 9) {
         strcat(metadata, "*");
         m_len++;
     }
 
-    metadata[20] = '\n';
+    metadata[9] = '\n';
 
     return metadata;
 }
@@ -267,6 +268,8 @@ int file_read(RDreq * rd_req) {
 
     payload = (char*)realloc(payload, sizeof(char)*total_bytes);
 
+    printf("read = %s\n", payload);
+
 	rd_req->payload = payload;
 
 	return 0;
@@ -286,7 +289,8 @@ int file_write(WRreq * wr_req) {
 
     int count_bytes = 0;
     int total_bytes = wr_req->nrbytes;
-    int current = OFFSET + wr_req->offset; 
+    int current = OFFSET + wr_req->offset;
+    int mcurrent;
 
     char * payload = wr_req->payload;
 
@@ -294,7 +298,6 @@ int file_write(WRreq * wr_req) {
 
     if (access(path, F_OK) != -1 ) {
         // file exists
-        printf("file exists\n");
         
         fd = open(path, O_RDWR);
 
@@ -332,9 +335,46 @@ int file_write(WRreq * wr_req) {
     
     else {
         //file doesn't exists, inserting metadata
-    }
 
-    printf("\nMETADATA = %s\n",metadata );
+        fd = open(path, O_RDWR | O_CREAT);
+
+        if(fd == -1){
+            perror("fd");
+            return 1;
+        }
+
+        if(fstat(fd, &buffer) == -1) {
+            perror("fstat");
+            return 1;
+        }
+
+        ftruncate(fd, 10 + wr_req->nrbytes + wr_req->offset);
+
+        p = mmap(NULL, wr_req->nrbytes + wr_req->offset, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+        if(p == MAP_FAILED){
+            perror("mmap");
+            return 1;
+        }
+
+        while(count_bytes < 10) {
+            p[mcurrent] = metadata[i];
+            count_bytes++;
+            mcurrent++;
+            i++;
+        }
+
+        count_bytes = 0;
+        i = 0;
+
+        while(count_bytes < total_bytes) {
+            p[current] = payload[i];
+            count_bytes++;
+            current++;
+            i++;
+        }
+
+    }
 
     return 0;
 }
