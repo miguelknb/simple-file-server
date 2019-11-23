@@ -183,14 +183,6 @@ int dir_parser(char * msg, DIRreq * req) {
 
 static char * metadata_insert(WRreq * wr_req) {
     int m_len;
-
-    // char * owner_id = (char*)malloc(12*sizeof(char));
-    // /* <id>\n */
-    // char * owner_perm = (char*)malloc(2*sizeof(char));
-    // /* <w/d>\n */ 
-    // char * others_perm = (char*)malloc(2*sizeof(char));
-    /* <w/d>\n */
-
     char * metadata = (char*)malloc(10*sizeof(char));
     /* template:
      *
@@ -202,16 +194,6 @@ static char * metadata_insert(WRreq * wr_req) {
      */
 
     sprintf(metadata, "%d\n%c\n%c\n", wr_req->client_id, wr_req->owner_perm, wr_req->other_perm);
-
-    // sprintf(owner_id, "%d" ,wr_req->client_id);
-    // strcat(owner_id, "\n");
-    // strcat(metadata, owner_id);
-    // owner_perm[0] = wr_req->owner_perm;
-    // owner_perm[1] = '\n';
-    // strcat(metadata, owner_perm);
-    // others_perm[0] = wr_req->other_perm;
-    // others_perm[1] = '\n';
-    // strcat(metadata, others_perm);
     
     m_len = strlen(metadata);
 
@@ -225,6 +207,63 @@ static char * metadata_insert(WRreq * wr_req) {
     return metadata;
 }
 
+int get_metadata(char * path, Metadata * metadata) {
+	int fd, i = 0;
+	char localpath[256] = "../SFS-root-dir";
+	char * p;
+	struct stat buffer;
+	char * temp = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+    const char s[2] = "\n";
+    char * token;
+    char params[4][4];
+    char tempMsg[10];
+    char own_p, oth_p;
+    int j = 0;
+    int id;
+
+    strcat(localpath, path);
+	fd = open(localpath, O_RDONLY);
+
+	if(fd == -1){
+		return 1;
+	}
+
+	if(fstat(fd, &buffer) == -1) {
+		return 1;
+	}
+
+	p = mmap(0, buffer.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	if(p == MAP_FAILED){
+		return 1;
+	}
+
+    while(i < 10) {
+        temp[i] = p[i];
+        i++;
+    }
+
+    strcpy(tempMsg, temp);
+    token = strtok(tempMsg, s);
+
+    while( token != NULL ) {
+        strcpy(params[j], token);
+        token = strtok(NULL, s);
+        j++;
+   }
+
+    id = atoi(params[0]);
+    own_p = params[1][0];
+    oth_p = params[2][0];
+
+    metadata->client_id = id;
+    metadata->owner_permission = own_p;
+    metadata->others_permission = oth_p;
+
+    free(temp);
+    munmap(p, buffer.st_size);
+
+    return 0;
+}
 
 int file_read(RDreq * rd_req) {
 	int fd, i = 0;

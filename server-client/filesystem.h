@@ -56,6 +56,12 @@ typedef struct dir_req {
     int client_id;
 }DIRreq;
 
+typedef struct metadata {
+    int client_id;
+    char owner_permission;
+    char others_permission;
+}Metadata;
+
 
 
 /*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
