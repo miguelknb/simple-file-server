@@ -40,7 +40,8 @@ typedef struct fi_req {
     char * path;
     int len;
     int owner;
-    char permissions;
+    char owner_permission;
+    char others_permission;
     long int file_length;
 
 }FIreq;
@@ -56,12 +57,6 @@ typedef struct dir_req {
     int client_id;
 }DIRreq;
 
-typedef struct metadata {
-    int client_id;
-    char owner_permission;
-    char others_permission;
-}Metadata;
-
 
 
 /*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
@@ -71,7 +66,7 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
 /* Generic msg string parser. Sends string to it's respective parser
  * 
  */
-
+int get_metadata(FIreq * fi_req);
 
 int write_parser(char * msg, WRreq * req);
 /* Write request string parser. Pass parameters through WRreq */ 
@@ -95,4 +90,10 @@ int file_read(RDreq * rd_req);
 
 int directory_create(DIRreq * dir_req);
 
+int directory_remove(DIRreq * dir_req);
+
+int directory_list(DIRreq * dir_req);
+
 int file_write(WRreq * wr_req);
+
+char * msg_formatter( void );

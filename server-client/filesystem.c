@@ -40,7 +40,13 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
     }
     else if (msg[0] == 'F') {
         printf("FILE\n");
-        file_parser(msg, fi_req);
+        if ( file_parser(msg, fi_req) < 0 ) {
+            rd_req->payload = "Error during parsing";
+        }
+
+        if ( get_metadata(fi_req) < 0) {
+            rd_req->payload = "Error opening file";
+        }
         printf("Parse complete\n");
         return 0;
     }   
@@ -60,6 +66,85 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
 /*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 /* Parse Functions */
 
+char * msg_formatter( void ) {
+	/*
+	 * 0 = Read
+	 * 1 = Write
+	 * 2 = File
+)	 * 3 = Direcrtory 
+	 */
+
+	char * msg = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+	char * path = (char*)malloc(MAXPATHLEN * sizeof(char));
+	char * type = (char*)malloc(6 * sizeof(char));
+	char * payload = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+
+	int nrbytes, offset, client_id;
+	char ow_p, ot_p;
+
+
+	printf("Request type: ");
+	scanf("%s", type);
+	getchar();  
+	printf("Request path: " );
+	scanf("%s", path);
+	getchar(); 
+
+	switch( type[0] ) {
+
+		case 'R' : {
+
+			printf("nrbytes: ");
+			scanf("%d", &nrbytes);
+			printf("offset: ");
+			scanf("%d", &offset);
+			printf("client id: ");
+			scanf("%d", &client_id);
+
+			sprintf(msg,"%s*%s*%d*%d*%d", type, path, nrbytes, offset, client_id);
+			
+			break;
+		}
+
+		case 'W' : {
+			printf("payload: ");
+			fgets(payload, MAX_PAYLOAD_SIZE, stdin);
+			payload[strlen(payload)-1] = '\0';
+			printf("nrbytes (your payload has %ld bytes): ", strlen(payload));
+			scanf("%d", &nrbytes);
+			printf("offset: ");
+			scanf("%d", &offset);
+			printf("client id: ");
+			scanf("%d", &client_id);
+			printf("owner permission: ");
+			getchar();
+			scanf("%c", &ow_p);
+			printf("other permission: ");
+			getchar();
+			scanf("%c", &ot_p);
+
+			sprintf(msg,"%s*%s*%s*%d*%d*%d*%c*%c", type, path, payload, nrbytes, offset, client_id, ow_p, ot_p);
+			break;
+		}
+
+		case 'F' : {
+			sprintf(msg,"%s*%s",type, path);
+			
+			break;
+		}
+
+		case 'D' : {
+			break;
+		}
+	}
+
+	printf("MSG: %s\n", msg);
+
+	free(path);
+	free(type);
+
+	return msg;
+}
 
 int write_parser(char * msg, WRreq * req) {
     int i = 0;
@@ -207,9 +292,9 @@ static char * metadata_insert(WRreq * wr_req) {
     return metadata;
 }
 
-int get_metadata(char * path, Metadata * metadata) {
+int get_metadata(FIreq * fi_req) {
 	int fd, i = 0;
-	char localpath[256] = "../SFS-root-dir";
+	char path[256] = "../SFS-root-dir";
 	char * p;
 	struct stat buffer;
 	char * temp = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
@@ -221,8 +306,8 @@ int get_metadata(char * path, Metadata * metadata) {
     int j = 0;
     int id;
 
-    strcat(localpath, path);
-	fd = open(localpath, O_RDONLY);
+    strcat(path, fi_req->path);
+	fd = open(path, O_RDONLY);
 
 	if(fd == -1){
 		return 1;
@@ -255,9 +340,10 @@ int get_metadata(char * path, Metadata * metadata) {
     own_p = params[1][0];
     oth_p = params[2][0];
 
-    metadata->client_id = id;
-    metadata->owner_permission = own_p;
-    metadata->others_permission = oth_p;
+    fi_req->owner = id;
+    fi_req->owner_permission = own_p;
+    fi_req->others_permission = oth_p;
+	fi_req->file_length = buffer.st_size;
 
     free(temp);
     munmap(p, buffer.st_size);
