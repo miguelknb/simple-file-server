@@ -439,9 +439,8 @@ int file_read(RDreq * rd_req) {
 }
 
 int directory_create(DIRreq * dir_req) {
-	int i = 0, fd, m_len;
-	char * p;
-	struct stat buffer;
+    int m_len;
+    FILE * fp;
 	char path[256] = "../SFS-root-dir";
 	char * metadata = (char*)malloc(10*sizeof(char));
 
@@ -462,40 +461,11 @@ int directory_create(DIRreq * dir_req) {
 	strcat(path, "/.dir");
 
 
-	fd = open(path, O_RDWR | O_CREAT);
+	fp = fopen(path,"w");
 
-    if(fd == -1){
-        perror("fd");
-        return 1;
-    }
+    fputs(metadata, fp);
 
-    if(fstat(fd, &buffer) == -1) {
-        perror("fstat");
-        return 1;
-    }
-
-	
-    ftruncate(fd, buffer.st_size + 10);
-
-    p = mmap(NULL, buffer.st_size + 10, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-
-    if(p == MAP_FAILED){
-        perror("mmap");
-        return 1;
-    }
-
-    while(i < 10) {
-        p[i] = metadata[i];
-        i++;
-    }
-
-	if(munmap(p, 10) == -1){
-		perror("munmap");
-		exit(1);
-	}
-
-	close(fd);
+	fclose(fp);
 
     return 0;
 }
