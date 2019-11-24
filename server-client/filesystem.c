@@ -52,7 +52,28 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
     }   
     else if (msg[0] == 'D') {
         printf("DIRECTORY\n");
-        dir_parser(msg, dir_req);
+        if ( dir_parser(msg, dir_req) < 0 ) {
+            rd_req->payload = "Error during parsing";
+        }
+
+		if (msg[1] == 'C') {
+			printf("D-CREATE\n");
+
+			directory_create(dir_req);
+
+		}
+
+		else if (msg[1] == 'R') {
+			printf("D-REMOVE\n");
+
+		}
+
+		else if (msg[1] == 'L') {
+			printf("D-LIST\n");
+
+		}
+
+
         printf("Parse complete\n");
         return 0;
     }
@@ -78,6 +99,7 @@ char * msg_formatter( void ) {
 	char * path = (char*)malloc(MAXPATHLEN * sizeof(char));
 	char * type = (char*)malloc(6 * sizeof(char));
 	char * payload = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+	char * dirname = (char*)malloc(64 * sizeof(char));
 
 	int nrbytes, offset, client_id;
 	char ow_p, ot_p;
@@ -134,6 +156,20 @@ char * msg_formatter( void ) {
 		}
 
 		case 'D' : {
+
+			printf("dirname: ");
+			scanf("%s", dirname);
+			printf("client id: ");
+			scanf("%d", &client_id);
+			printf("owner permission: ");
+			getchar();
+			scanf("%c", &ow_p);
+			printf("other permission: ");
+			getchar();
+			scanf("%c", &ot_p);
+
+			sprintf(msg,"%s*%s*%s*%d*%c*%c",type, path, dirname, client_id, ow_p, ot_p);
+
 			break;
 		}
 	}
@@ -240,7 +276,7 @@ int dir_parser(char * msg, DIRreq * req) {
     char tempMsg[size];
     const char s[2] = "*";
     char * token;
-    char params[7][64];
+    char params[6][64];
 
     strcpy(tempMsg, msg);
     token = strtok(tempMsg, s);    
@@ -252,13 +288,15 @@ int dir_parser(char * msg, DIRreq * req) {
    }
 
     req->path = (char*)malloc(sizeof(char)*strlen(params[1]));
-    req->dirname = (char*)malloc(sizeof(char)*strlen(params[3]));
+    req->dirname = (char*)malloc(sizeof(char)*strlen(params[2]));
 
     strcpy(req->path, params[1]);
-    strcpy(req->dirname, params[3]);
+    strcpy(req->dirname, params[2]);
     req->len = sizeof(req->path);
     req->dirnamelen = sizeof(req->dirname);
-    req->client_id = atoi(params[5]);
+    req->client_id = atoi(params[3]);
+	req->owner_permission = params[4][0];
+	req->others_permission = params[5][0];
 
     return 0;
 }
@@ -401,7 +439,64 @@ int file_read(RDreq * rd_req) {
 }
 
 int directory_create(DIRreq * dir_req) {
-    
+	int i = 0, fd, m_len;
+	char * p;
+	struct stat buffer;
+	char path[256] = "../SFS-root-dir";
+	char * metadata = (char*)malloc(10*sizeof(char));
+
+	sprintf(metadata, "%d\n%c\n%c\n", dir_req->client_id, dir_req->owner_permission, dir_req->others_permission);
+
+	m_len = strlen(metadata);
+
+    while (m_len < 9) {
+        strcat(metadata, "*");
+        m_len++;
+    }
+
+    metadata[9] = '\n';
+
+	strcat(path, dir_req->path);
+	strcat(path, dir_req->dirname);
+	mkdir(path, 0777);
+	strcat(path, "/.dir");
+
+
+	fd = open(path, O_RDWR | O_CREAT);
+
+    if(fd == -1){
+        perror("fd");
+        return 1;
+    }
+
+    if(fstat(fd, &buffer) == -1) {
+        perror("fstat");
+        return 1;
+    }
+
+	
+    ftruncate(fd, buffer.st_size + 10);
+
+    p = mmap(NULL, buffer.st_size + 10, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+
+    if(p == MAP_FAILED){
+        perror("mmap");
+        return 1;
+    }
+
+    while(i < 10) {
+        p[i] = metadata[i];
+        i++;
+    }
+
+	if(munmap(p, 10) == -1){
+		perror("munmap");
+		exit(1);
+	}
+
+	close(fd);
+
     return 0;
 }
 
@@ -475,7 +570,7 @@ int file_write(WRreq * wr_req) {
 
         ftruncate(fd, 10 + wr_req->nrbytes + wr_req->offset);
 
-        p = mmap(NULL, wr_req->nrbytes + wr_req->offset, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        p = mmap(NULL, 10 + wr_req->nrbytes + wr_req->offset, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
         if(p == MAP_FAILED){
             perror("mmap");

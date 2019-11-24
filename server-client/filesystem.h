@@ -55,6 +55,8 @@ typedef struct dir_req {
     char * dirname;
     int dirnamelen;
     int client_id;
+    char owner_permission;
+    char others_permission;
 }DIRreq;
 
 
