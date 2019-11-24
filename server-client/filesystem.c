@@ -12,9 +12,13 @@
 
 
 int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
+    int rep;
+
+    printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
+    printf("\n> Server Received a new Request\n");
 
     if (msg[0] == 'R') {
-        printf("READ\n");
+        printf("  - Read Request\n");
         if ( read_parser(msg, rd_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
@@ -22,24 +26,31 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
         if ( file_read(rd_req) < 0) {
             rd_req->payload = "Error opening file";
         }
-        printf("Parse complete\n");
         return 0;
 
     }
     else if (msg[0] == 'W') {
-        printf("WRITE\n");
+        
+        printf("  - Write Request\n");
+
         if ( write_parser(msg, wr_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
 
-        if ( file_write(wr_req) < 0) {
-            rd_req->payload = "Error opening file";
+        if ( (rep = file_write(wr_req)) != 0) {
+            if ( rep == 2) {
+                rd_req->payload = "Unauthorized acees";
+                printf("  - Unauthorized access\n");
+            }
         }
-        printf("Parse complete\n");
-        return 0;
+        else printf("  - Request executed successfully\n");
+
+        printf("> Request finished\n");
+
     }
     else if (msg[0] == 'F') {
-        printf("FILE\n");
+
+        printf("  - File Info Reques\n");
         if ( file_parser(msg, fi_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
@@ -47,39 +58,41 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
         if ( get_metadata(fi_req) < 0) {
             rd_req->payload = "Error opening file";
         }
-        printf("Parse complete\n");
-        return 0;
     }   
     else if (msg[0] == 'D') {
-        printf("DIRECTORY\n");
         if ( dir_parser(msg, dir_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
 
 		if (msg[1] == 'C') {
-			printf("D-CREATE\n");
+			printf("  - Directory Create Request\n");
 
 			directory_create(dir_req);
 
 		}
 
 		else if (msg[1] == 'R') {
-			printf("D-REMOVE\n");
+			printf("  - Directory Remove Request\n");
+
+            directory_remove(dir_req);
 
 		}
 
 		else if (msg[1] == 'L') {
-			printf("D-LIST\n");
+			printf("  - Directory List Request\n");
 
 		}
 
-
-        printf("Parse complete\n");
-        return 0;
     }
 
-    else 
+    else {
+        printf("Invalid Request\n");
+        printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
+
         return -1;
+    }
+
+    printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
 
     return 0;
 }
@@ -181,6 +194,69 @@ char * msg_formatter( void ) {
 
 	return msg;
 }
+
+
+int authorization(char * authpath, int req_id) {
+    int fd, i = 0;
+	char path[256] = "../SFS-root-dir";
+	char * p;
+	struct stat buffer;
+	char * temp = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+    const char s[2] = "\n";
+    char * token;
+    char params[4][4];
+    char tempMsg[10];
+    char own_p, oth_p;
+    int j = 0;
+    int id;
+
+    strcat(path, authpath);
+	fd = open(path, O_RDONLY);
+
+	if(fd == -1){
+		return 2;
+	}
+
+	if(fstat(fd, &buffer) == -1) {
+		return 2;
+	}
+
+	p = mmap(0, buffer.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	if(p == MAP_FAILED){
+		return 2;
+	}
+
+    while(i < 10) {
+        temp[i] = p[i];
+        i++;
+    }
+
+    strcpy(tempMsg, temp);
+    token = strtok(tempMsg, s);
+
+    while( token != NULL ) {
+        strcpy(params[j], token);
+        token = strtok(NULL, s);
+        j++;
+   }
+
+    id = atoi(params[0]);
+    own_p = params[1][0];
+    oth_p = params[2][0];
+
+    if ( id == req_id && own_p == 'w') {
+        /* has permission */
+        return 1;
+    }
+
+    if (oth_p == 'w' ) {
+        /* has permission */
+        return 1;
+    }
+
+	return 0;
+}
+
 
 int write_parser(char * msg, WRreq * req) {
     int i = 0;
@@ -470,6 +546,11 @@ int directory_create(DIRreq * dir_req) {
     return 0;
 }
 
+int directory_remove(DIRreq * dir_req) {
+
+    return 0;
+}
+
 int file_write(WRreq * wr_req) {
     char * metadata = metadata_insert(wr_req);
     int fd, i = 0;
@@ -488,24 +569,31 @@ int file_write(WRreq * wr_req) {
 
     if (access(path, F_OK) != -1 ) {
         // file exists
+
+        printf("   * writing on file\n");
         
+        if( ! authorization(wr_req->path, wr_req->client_id ) ){
+            return 2;
+        }
+
         fd = open(path, O_RDWR);
 
         if(fd == -1){
             perror("fd");
-            return 1;
+            printf("   * invalid path\n");
+            return 5;
         }
 
         if(fstat(fd, &buffer) == -1) {
             perror("fstat");
-            return 1;
+            return 2;
         }
 
         p = mmap(NULL, buffer.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
         if(p == MAP_FAILED){
             perror("mmap");
-            return 1;
+            return 2;
         }
 
         
@@ -526,16 +614,18 @@ int file_write(WRreq * wr_req) {
     else {
         //file doesn't exists, inserting metadata
 
+        printf("   * creating new file\n");
+
         fd = open(path, O_RDWR | O_CREAT);
 
         if(fd == -1){
-            perror("fd");
-            return 1;
+            printf("   * invalid path\n");
+            return 5;
         }
 
         if(fstat(fd, &buffer) == -1) {
             perror("fstat");
-            return 1;
+            return 2;
         }
 
         ftruncate(fd, 10 + wr_req->nrbytes + wr_req->offset);
@@ -544,7 +634,7 @@ int file_write(WRreq * wr_req) {
 
         if(p == MAP_FAILED){
             perror("mmap");
-            return 1;
+            return 2;
         }
 
         while(count_bytes < 10) {
