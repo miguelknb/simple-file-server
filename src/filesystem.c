@@ -166,12 +166,12 @@ char * msg_formatter( void ) {
 
 	int nrbytes, offset, client_id;
 	char ow_p, ot_p;
+   
 
-
-	printf("Request type: ");
+	printf("\nInsert request type\n  > ");
 	scanf("%s", type);
-	getchar();  
-	printf("Request path: " );
+	getchar();
+	printf("\nInsert request path\n  > ");
 	scanf("%s", path);
 	getchar(); 
 
@@ -179,11 +179,11 @@ char * msg_formatter( void ) {
 
 		case 'R' : {
 
-			printf("nrbytes: ");
+			printf("\nInsert number of bytes to be read (nrbytes)\n  > ");
 			scanf("%d", &nrbytes);
-			printf("offset: ");
+			printf("\nInsert offset\n  > ");
 			scanf("%d", &offset);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
 
 			sprintf(msg,"%s*%s*%d*%d*%d", type, path, nrbytes, offset, client_id);
@@ -192,19 +192,19 @@ char * msg_formatter( void ) {
 		}
 
 		case 'W' : {
-			printf("payload: ");
+			printf("\nType in your payload\n  > ");
 			fgets(payload, MAX_PAYLOAD_SIZE, stdin);
 			payload[strlen(payload)-1] = '\0';
-			printf("nrbytes (your payload has %ld bytes): ", strlen(payload));
+			printf("\nInsert number of bytes to be read (your payload has %ld bytes)\n  > ", strlen(payload));
 			scanf("%d", &nrbytes);
-			printf("offset: ");
+			printf("\nInsert offset\n  > ");
 			scanf("%d", &offset);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
-			printf("owner permission: ");
+			printf("\nInsert owner permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ow_p);
-			printf("other permission: ");
+			printf("\nInser others users permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ot_p);
 
@@ -220,14 +220,14 @@ char * msg_formatter( void ) {
 
 		case 'D' : {
 
-			printf("dirname: ");
+			printf("\nInsert dirname\n  > ");
 			scanf("%s", dirname);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
-			printf("owner permission: ");
+			printf("\nInsert owner permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ow_p);
-			printf("other permission: ");
+			printf("\nInsert other permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ot_p);
 
@@ -237,7 +237,7 @@ char * msg_formatter( void ) {
 		}
 	}
 
-	printf("MSG: %s\n", msg);
+	//printf("MSG: %s\n", msg);
 
 	free(path);
 	free(type);
@@ -743,6 +743,7 @@ int file_write(WRreq * wr_req) {
 
         if( (wr_req->offset + wr_req->nrbytes) > fsize - 1) {
             /* allocating more memory to file */
+            printf("   * extending file' end\n");
             fsize = wr_req->nrbytes + wr_req->offset;
             ftruncate(fd, fsize);
         }
@@ -765,6 +766,18 @@ int file_write(WRreq * wr_req) {
             current++;
             i++;
         }
+
+        if (msync(p, fsize, MS_SYNC) == -1) {
+            perror("Could not sync the file to disk");
+        }
+
+        if (munmap(p, fsize) == -1) {
+            close(fd);
+            perror("Error un-mmapping the file");
+            return 2;
+        }
+
+        close(fd);
 
     }
     

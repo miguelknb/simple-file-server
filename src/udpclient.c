@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
       n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
       if (n < 0) 
         error("ERROR in recvfrom");
-      printf("Response: %s", buf);
+      printf("\nResponse: %s\n", buf);
       
     }
 
@@ -96,10 +96,10 @@ char * msg_formatter( void ) {
 	char ow_p, ot_p;
 
 
-	printf("Request type: ");
+	printf("Insert request type\n\t>");
 	scanf("%s", type);
 	getchar();  
-	printf("Request path: " );
+	printf("Insert request path\n\t>" );
 	scanf("%s", path);
 	getchar(); 
 
