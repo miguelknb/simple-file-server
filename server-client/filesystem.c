@@ -716,7 +716,6 @@ int file_write(WRreq * wr_req) {
     char * payload = wr_req->payload;
 
 	strcat(path, wr_req->path);
-    printf("> path: %s\n", path);
 
     if (access(path, F_OK) != -1 ) {
         // file exists
@@ -727,7 +726,7 @@ int file_write(WRreq * wr_req) {
             return 2;
         }
 
-        fd = open(path, O_RDWR);
+        fd = open(path, O_RDWR | O_CREAT);
 
         if(fd == -1){
             perror("fd");
@@ -740,22 +739,29 @@ int file_write(WRreq * wr_req) {
             return 2;
         }
 
-        p = mmap(NULL, buffer.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        size_t fsize = buffer.st_size;
+
+        if( (wr_req->offset + wr_req->nrbytes) > fsize - 1) {
+            /* allocating more memory to file */
+            fsize = wr_req->nrbytes + wr_req->offset;
+            ftruncate(fd, fsize);
+        }
+
+        p = mmap(NULL, fsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
         if(p == MAP_FAILED){
             perror("mmap");
             return 2;
         }
 
-        
-        if( (wr_req->offset + wr_req->nrbytes) > buffer.st_size - 1) {
-            /* allocating more memory to file */
-            ftruncate(fd, wr_req->nrbytes + wr_req->offset);
+        for(int k = 0; k < 10; k ++) {
+            p[k] = metadata[k];
         }
 
-        while(count_bytes < total_bytes) {
+        i = 0;
+        current = OFFSET + wr_req->offset;
+        for(count_bytes = 0; count_bytes < total_bytes; count_bytes ++) {
             p[current] = payload[i];
-            count_bytes++;
             current++;
             i++;
         }
@@ -798,11 +804,11 @@ int file_write(WRreq * wr_req) {
             i++;
         }
 
-        if (msync(p, 10 + wr_req->nrbytes + wr_req->offset, MS_SYNC) == -1) {
+        if (msync(p, size, MS_SYNC) == -1) {
             perror("Could not sync the file to disk");
         }
 
-        if (munmap(p, 10 + wr_req->nrbytes + wr_req->offset) == -1) {
+        if (munmap(p, size) == -1) {
             close(fd);
             perror("Error un-mmapping the file");
             return 2;
