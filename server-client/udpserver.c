@@ -9,6 +9,18 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "filesystem.h"
+#include <stdio.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+
+#define _GNU_SOURCE
+#define PAGESIZE 4096
 
 #define BUFSIZE 1024
 
@@ -39,7 +51,13 @@ int main(int argc, char **argv)
 	/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 	/* File Server Variables */
 
-	
+	RDreq * rd_req = (RDreq*)malloc(sizeof(RDreq));
+    WRreq * wr_req = (WRreq*)malloc(sizeof(WRreq));
+    FIreq * fi_req = (FIreq*)malloc(sizeof(FIreq));
+    DIRreq * dir_req = (DIRreq*)malloc(sizeof(DIRreq));
+
+	char msg[BUFSIZE];
+	char * reply = (char*)malloc(BUFSIZE * sizeof(char));
 
 	/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 	
@@ -85,8 +103,8 @@ int main(int argc, char **argv)
 	{
 
 	/* recvfrom: receive a UDP datagram from a client */
-		bzero(buf, BUFSIZE);
-		n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *)&clientaddr, &clientlen);
+		bzero(msg, BUFSIZE);
+		n = recvfrom(sockfd, msg, BUFSIZE, 0, (struct sockaddr *)&clientaddr, &clientlen);
 
 		if (n < 0)
 			error("ERROR in recvfrom");
@@ -101,19 +119,16 @@ int main(int argc, char **argv)
 
 		if (hostaddrp == NULL) error("ERROR on inet_ntoa\n");
 
-		printf("server received datagram from %s (%s)\n", hostp->h_name, hostaddrp);
-		printf("server received %ld/%d bytes: %s\n", strlen(buf), n, buf);
+		printf("message received: %s\n", msg);
 
 	/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 
-
-	
-
+	reply = msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
 		
 	/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 
 	/* sendto: echo the response back to the client */
-		n = sendto(sockfd, buf, strlen(buf), 0, (struct sockaddr *)&clientaddr, clientlen);
+		n = sendto(sockfd, reply, strlen(reply), 0, (struct sockaddr *)&clientaddr, clientlen);
 		if (n < 0)
 			error("ERROR in sendto");
 	}

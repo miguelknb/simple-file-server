@@ -6,13 +6,17 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/param.h>
+#include <dirent.h>
+#include <sys/dir.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #define _GNU_SOURCE
 
 
-int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
+char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req) {
     int rep;
+    char * feedback = (char*)malloc(MAX_PAYLOAD_SIZE*sizeof(char));
 
     printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
     printf("\n> Server Received a new Request\n");
@@ -20,13 +24,18 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
     if (msg[0] == 'R') {
         printf("  - Read Request\n");
         if ( read_parser(msg, rd_req) < 0 ) {
-            rd_req->payload = "Error during parsing";
+            feedback = "Error during parsing";
+            return feedback;
         }
 
         if ( file_read(rd_req) < 0) {
-            rd_req->payload = "Error opening file";
+            feedback = "Error opening file";
+            return feedback;
         }
-        return 0;
+
+        feedback = rd_req->payload;
+
+        return feedback;
 
     }
     else if (msg[0] == 'W') {
@@ -39,8 +48,9 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
 
         if ( (rep = file_write(wr_req)) != 0) {
             if ( rep == 2) {
-                rd_req->payload = "Unauthorized acees";
+                feedback = "Unauthorized acees";
                 printf("  - Unauthorized access\n");
+                return feedback;
             }
         }
         else printf("  - Request executed successfully\n");
@@ -67,19 +77,48 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
 		if (msg[1] == 'C') {
 			printf("  - Directory Create Request\n");
 
-			directory_create(dir_req);
+			if ( (rep = directory_create(dir_req)) != 0) {
+                if ( rep == 2) {
+                    feedback = "Unauthorized acees";
+                    printf("  - Unauthorized access\n");
+                    return feedback;
+                }
+            }
+            printf("  - Request executed successfully\n");
+            feedback = "Request executed successfully";
+            printf("> Request finished\n");
 
 		}
 
 		else if (msg[1] == 'R') {
 			printf("  - Directory Remove Request\n");
 
-            directory_remove(dir_req);
+            if ( (rep = directory_remove(dir_req)) != 0) {
+                if ( rep == 2) {
+                    feedback = "Unauthorized acees";
+                    printf("  - Unauthorized access\n");
+                    return feedback;
+                }
+            }
+            printf("  - Request executed successfully\n");
+            feedback = "Request executed successfully";
+            printf("> Request finished\n");
 
 		}
 
 		else if (msg[1] == 'L') {
 			printf("  - Directory List Request\n");
+
+            if ( (rep = directory_list(dir_req)) != 0) {
+                if ( rep == 2) {
+                    feedback = "Unauthorized acees";
+                    printf("  - Unauthorized access\n");
+                    return feedback;
+                }
+            }
+            printf("  - Request executed successfully\n");
+            feedback = dir_req->payload;
+            printf("> Request finished\n");
 
 		}
 
@@ -89,12 +128,12 @@ int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, D
         printf("Invalid Request\n");
         printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
 
-        return -1;
+        return feedback;
     }
 
     printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
 
-    return 0;
+    return feedback;
 }
 
 /*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
@@ -546,9 +585,110 @@ int directory_create(DIRreq * dir_req) {
     return 0;
 }
 
-int directory_remove(DIRreq * dir_req) {
 
+int super_rmdir(const char *path) {
+    DIR * dir = opendir(path);
+    size_t path_len = strlen(path);
+    int rm = -1;
+
+    if(dir) {
+        struct dirent *p;
+        rm = 0;
+
+        while (!rm  && (p = readdir(dir))) {
+            int rm2 = -1;
+            char * buf;
+            size_t len;
+
+            if(!strcmp(p->d_name, ".") || !strcmp(p->d_name, "..")) {
+                continue;
+            }
+
+            len = path_len + strlen(p->d_name) + 2; 
+            buf = malloc(len);
+            
+            if (buf) {
+                struct stat statbuf;
+                snprintf(buf, len, "%s/%s", path, p->d_name);
+
+                if (!stat(buf, &statbuf) ) {
+                    if (S_ISDIR(statbuf.st_mode)) {
+                        rm2 = super_rmdir(buf);
+                    }
+                    else {
+                        rm2 = unlink(buf);
+                    }
+                }
+                free(buf);
+            }
+
+            rm = rm2;
+        }
+
+        closedir(dir);
+
+    }
+
+    if(!rm) {
+        rm = rmdir(path);
+    }
+    return rm;
+}
+
+int directory_remove(DIRreq * dir_req) {
+    char * authpath = strcat(dir_req->path ,".dir");
+
+    if (authorization(authpath, dir_req->client_id) == 2) {
+        return 2;
+    }
+    super_rmdir(dir_req->path);
     return 0;
+}
+
+int file_select(const struct direct * entry) {     
+    if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))            
+        return 0;     
+    else           
+        return 1; 
+}
+
+extern int alphasort();
+
+int directory_list(DIRreq * dir_req) {
+    int count,i;
+	char path[256] = "../SFS-root-dir";
+    char * temp = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+    dir_req->payload = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+    struct stat archive;
+    struct direct **files;
+    int file_select();  
+
+    strcat(path, dir_req->path);
+
+    printf("  - Listing files in Directory =\"%s\"\n",dir_req->path);
+
+    count = scandir(path, &files, file_select, alphasort);
+    /* If no files found, make a non-selectable menu item */
+
+    if (count <= 0) {
+        printf("  - No files in this directory\n");
+        return 3;
+    }
+
+    for ( i = 1; i < count + 1 ; ++i) {
+
+        if ( stat(path,&archive)  < 0)
+            return 1;
+
+        strcat(temp, files[i-1]->d_name);
+        strcat(temp, "\n");
+    }
+
+    strcpy(dir_req->payload, temp);
+
+    free(temp);
+    return 0;
+
 }
 
 int file_write(WRreq * wr_req) {

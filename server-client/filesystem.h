@@ -57,6 +57,7 @@ typedef struct dir_req {
     int client_id;
     char owner_permission;
     char others_permission;
+    char * payload;
 }DIRreq;
 
 
@@ -64,7 +65,7 @@ typedef struct dir_req {
 /*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 /* Parsing functions */
 
-int msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req);
+char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req, DIRreq * dir_req);
 /* Generic msg string parser. Sends string to it's respective parser
  * 
  */

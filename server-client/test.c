@@ -22,7 +22,9 @@ int main(void) {
 
 	msg = msg_formatter();
 
-	msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
+	msg = msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
+
+	printf("\nRESPONSE: %s\n", msg);
 
 	free(wr_req);
 	free(rd_req);
