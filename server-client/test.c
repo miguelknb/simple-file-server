@@ -19,12 +19,13 @@ int main(void) {
     DIRreq * dir_req = (DIRreq*)malloc(sizeof(DIRreq));
 
 	char * msg;
+	char * reply;
 
 	msg = msg_formatter();
 
-	msg = msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
+	reply = msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
 
-	printf("\nRESPONSE: %s\n", msg);
+	printf("\nRESPONSE: %s\n", reply);
 
 	free(wr_req);
 	free(rd_req);

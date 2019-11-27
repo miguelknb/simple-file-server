@@ -21,6 +21,8 @@ char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req
     printf("\n*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n");
     printf("\n> Server Received a new Request\n");
 
+    /* Read Request --------------------------------------------------------------- */ 
+
     if (msg[0] == 'R') {
         printf("  - Read Request\n");
         if ( read_parser(msg, rd_req) < 0 ) {
@@ -38,12 +40,15 @@ char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req
         return feedback;
 
     }
+    /* Write Request --------------------------------------------------------------- */
+
     else if (msg[0] == 'W') {
         
         printf("  - Write Request\n");
 
         if ( write_parser(msg, wr_req) < 0 ) {
-            rd_req->payload = "Error during parsing";
+            feedback = "Error during parsing";
+            return feedback;
         }
 
         if ( (rep = file_write(wr_req)) != 0) {
@@ -58,6 +63,8 @@ char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req
         printf("> Request finished\n");
 
     }
+    /* File Request --------------------------------------------------------------- */
+
     else if (msg[0] == 'F') {
 
         printf("  - File Info Reques\n");
@@ -69,7 +76,11 @@ char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req
             rd_req->payload = "Error opening file";
         }
     }   
+
+    /* Read Request --------------------------------------------------------------- */
+
     else if (msg[0] == 'D') {
+
         if ( dir_parser(msg, dir_req) < 0 ) {
             rd_req->payload = "Error during parsing";
         }
@@ -700,12 +711,12 @@ int file_write(WRreq * wr_req) {
 
     int count_bytes = 0;
     int total_bytes = wr_req->nrbytes;
-    int current = OFFSET + wr_req->offset;
-    int mcurrent;
+    int current;
 
     char * payload = wr_req->payload;
 
 	strcat(path, wr_req->path);
+    printf("> path: %s\n", path);
 
     if (access(path, F_OK) != -1 ) {
         // file exists
@@ -753,47 +764,51 @@ int file_write(WRreq * wr_req) {
     
     else {
         //file doesn't exists, inserting metadata
+        size_t size = 10 + wr_req->nrbytes + wr_req->offset;
 
         printf("   * creating new file\n");
 
-        fd = open(path, O_RDWR | O_CREAT);
+        fd = open(path, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 
         if(fd == -1){
             printf("   * invalid path\n");
             return 5;
         }
 
-        if(fstat(fd, &buffer) == -1) {
-            perror("fstat");
-            return 2;
-        }
+        ftruncate(fd, size);
 
-        ftruncate(fd, 10 + wr_req->nrbytes + wr_req->offset);
-
-        p = mmap(NULL, 10 + wr_req->nrbytes + wr_req->offset, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
         if(p == MAP_FAILED){
             perror("mmap");
             return 2;
         }
 
-        while(count_bytes < 10) {
-            p[mcurrent] = metadata[i];
-            count_bytes++;
-            mcurrent++;
-            i++;
+        /* Inserting metadata */ 
+
+        for(int k = 0; k < 10; k ++) {
+            p[k] = metadata[k];
         }
 
-        count_bytes = 0;
         i = 0;
-
-        while(count_bytes < total_bytes) {
+        current = OFFSET + wr_req->offset;
+        for(count_bytes = 0; count_bytes < total_bytes; count_bytes ++) {
             p[current] = payload[i];
-            count_bytes++;
             current++;
             i++;
         }
 
+        if (msync(p, 10 + wr_req->nrbytes + wr_req->offset, MS_SYNC) == -1) {
+            perror("Could not sync the file to disk");
+        }
+
+        if (munmap(p, 10 + wr_req->nrbytes + wr_req->offset) == -1) {
+            close(fd);
+            perror("Error un-mmapping the file");
+            return 2;
+        }
+
+        close(fd);
     }
 
     return 0;
