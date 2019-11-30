@@ -58,7 +58,9 @@ char * msg_controller(char * msg, RDreq * rd_req, WRreq * wr_req, FIreq * fi_req
                 return feedback;
             }
         }
-        else printf("  - Request executed successfully\n");
+        printf("  - Request executed successfully\n");
+        feedback = "Request executed successfully";
+        return feedback;
 
         printf("> Request finished\n");
 
@@ -296,14 +298,18 @@ int authorization(char * authpath, int req_id) {
 
     if ( id == req_id && own_p == 'w') {
         /* has permission */
+        printf("     -> Permission granted\n");
         return 1;
     }
 
     if (oth_p == 'w' ) {
         /* has permission */
+        printf("     -> Permission granted for user %d\n", id);
         return 1;
     }
+    printf("     -> Permission denied for user %d\n", id);
 
+    free(temp);
 	return 0;
 }
 
@@ -741,10 +747,10 @@ int file_write(WRreq * wr_req) {
 
         size_t fsize = buffer.st_size;
 
-        if( (wr_req->offset + wr_req->nrbytes) > fsize - 1) {
+        if( (wr_req->offset + wr_req->nrbytes + OFFSET) > fsize - 1) {
             /* allocating more memory to file */
             printf("   * extending file' end\n");
-            fsize = wr_req->nrbytes + wr_req->offset;
+            fsize = wr_req->nrbytes + wr_req->offset + OFFSET;
             ftruncate(fd, fsize);
         }
 

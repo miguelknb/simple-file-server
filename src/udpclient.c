@@ -10,7 +10,8 @@
 #include <netdb.h> 
 
 #define BUFSIZE 1024
-
+#define MAX_PAYLOAD_SIZE 1024
+#define MAXPATHLEN 512
 /* 
  * error - wrapper for perror
  */
@@ -55,6 +56,9 @@ int main(int argc, char **argv) {
     bcopy((char *)server->h_addr, (char *)&serveraddr.sin_addr.s_addr, server->h_length);
     serveraddr.sin_port = htons(portno);
 
+	printf("----------------------------------------------------\n\n");
+	printf("\n\n* Filesystem Server *\n\n");
+
     while(1) {
 
       /* get a message from the user */
@@ -71,7 +75,10 @@ int main(int argc, char **argv) {
       n = recvfrom(sockfd, buf, strlen(buf), 0, &serveraddr, &serverlen);
       if (n < 0) 
         error("ERROR in recvfrom");
-      printf("\nResponse: %s\n", buf);
+
+		printf("\n--------------------------------------\n");
+      printf("\nResponse from Filesystem\n   > %s\n", buf);
+	  printf("\n--------------------------------------\n");
       
     }
 
@@ -86,20 +93,20 @@ char * msg_formatter( void ) {
 )	 * 3 = Direcrtory 
 	 */
 
-	char * msg = (char*)malloc(BUFSIZE * sizeof(char));
-	char * path = (char*)malloc(BUFSIZE * sizeof(char));
+	char * msg = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
+	char * path = (char*)malloc(MAXPATHLEN * sizeof(char));
 	char * type = (char*)malloc(6 * sizeof(char));
-	char * payload = (char*)malloc(BUFSIZE * sizeof(char));
+	char * payload = (char*)malloc(MAX_PAYLOAD_SIZE * sizeof(char));
 	char * dirname = (char*)malloc(64 * sizeof(char));
 
 	int nrbytes, offset, client_id;
 	char ow_p, ot_p;
+   
 
-
-	printf("Insert request type\n\t>");
+	printf("\nInsert request type\n  > ");
 	scanf("%s", type);
-	getchar();  
-	printf("Insert request path\n\t>" );
+	getchar();
+	printf("\nInsert request path\n  > ");
 	scanf("%s", path);
 	getchar(); 
 
@@ -107,11 +114,11 @@ char * msg_formatter( void ) {
 
 		case 'R' : {
 
-			printf("nrbytes: ");
+			printf("\nInsert number of bytes to be read (nrbytes)\n  > ");
 			scanf("%d", &nrbytes);
-			printf("offset: ");
+			printf("\nInsert offset\n  > ");
 			scanf("%d", &offset);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
 
 			sprintf(msg,"%s*%s*%d*%d*%d", type, path, nrbytes, offset, client_id);
@@ -120,19 +127,19 @@ char * msg_formatter( void ) {
 		}
 
 		case 'W' : {
-			printf("payload: ");
-			fgets(payload, BUFSIZE, stdin);
+			printf("\nType in your payload\n  > ");
+			fgets(payload, MAX_PAYLOAD_SIZE, stdin);
 			payload[strlen(payload)-1] = '\0';
-			printf("nrbytes (your payload has %ld bytes): ", strlen(payload));
+			printf("\nInsert number of bytes to be read (your payload has %ld bytes)\n  > ", strlen(payload));
 			scanf("%d", &nrbytes);
-			printf("offset: ");
+			printf("\nInsert offset\n  > ");
 			scanf("%d", &offset);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
-			printf("owner permission: ");
+			printf("\nInsert owner permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ow_p);
-			printf("other permission: ");
+			printf("\nInser others users permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ot_p);
 
@@ -148,14 +155,14 @@ char * msg_formatter( void ) {
 
 		case 'D' : {
 
-			printf("dirname: ");
+			printf("\nInsert dirname\n  > ");
 			scanf("%s", dirname);
-			printf("client id: ");
+			printf("\nInsert client id\n  > ");
 			scanf("%d", &client_id);
-			printf("owner permission: ");
+			printf("\nInsert owner permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ow_p);
-			printf("other permission: ");
+			printf("\nInsert other permission (if you are the owner)\n  > ");
 			getchar();
 			scanf("%c", &ot_p);
 
@@ -165,7 +172,7 @@ char * msg_formatter( void ) {
 		}
 	}
 
-	printf("MSG: %s\n", msg);
+	//printf("MSG: %s\n", msg);
 
 	free(path);
 	free(type);

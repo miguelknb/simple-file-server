@@ -119,8 +119,7 @@ int main(int argc, char **argv)
 
 		if (hostaddrp == NULL) error("ERROR on inet_ntoa\n");
 
-		printf("message received: %s\n", msg);
-
+		printf("\n> Message received: %s\n", msg);
 	/*-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.*/
 
 	reply = msg_controller(msg, rd_req, wr_req, fi_req, dir_req);
