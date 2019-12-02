@@ -76,8 +76,8 @@ int main(int argc, char **argv) {
       if (n < 0) 
         error("ERROR in recvfrom");
 
-		printf("\n--------------------------------------\n");
-      printf("\nResponse from Filesystem\n   > %s\n", buf);
+	  printf("\n--------------------------------------\n");
+      printf("\nResponse from Filesystem\n\n%s\n", buf);
 	  printf("\n--------------------------------------\n");
       
     }
